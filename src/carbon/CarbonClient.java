@@ -3,20 +3,19 @@ package carbon;
 import java.io.IOException;
 import java.net.*;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 
 import static carbonserver.CarbonServer.*;
 
 public class CarbonClient {
 	
 	public static final int CLIENT_PORT = 16513;
+	public static final int PACKET_HEADER_SIZE = 8;
 	
 	public static CarbonClient client;
 	
 	private DatagramSocket 	socket;
 	private InetAddress		connectedIP;
-	private int				connectedPort;
-	
-	private byte[]			headerConnInfo;
 	
 
 	public static void main(String[] args) {
@@ -32,46 +31,48 @@ public class CarbonClient {
 	public CarbonClient(String ipAddress) {
 		try {
 			connectedIP = InetAddress.getByName(ipAddress);
-			connectedPort = SERVER_PORT;
 			
-			openSocket(CLIENT_PORT);
-			connectToServer(connectedIP, connectedPort);
+			openSocket();
+			connectToServer(connectedIP);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
 	
-	public void openSocket(int port) throws SocketException {
+	public void openSocket() throws SocketException {
 		socket = new DatagramSocket(CLIENT_PORT);
 		System.out.println("CLIENT: Opened socket");
 	}
 	
-	public void connectToServer(InetAddress ip, int port) throws IOException {
-		System.out.println("CLIENT: Connecting to server: " + ip.getHostAddress() + "::" + port);
-		
-		byte[] portArray = new byte[2];
-		portArray[0] = (byte) ((connectedPort & 0xFF00) >> 8);
-		portArray[1] = (byte) (connectedPort & 0xFF);
-		
-		headerConnInfo = addArrays(connectedIP.getAddress(), portArray);
+	public boolean connectToServer(InetAddress ip) throws IOException {
+		System.out.println("CLIENT: Connecting to server: " + ip.getHostAddress() + "::" + SERVER_PORT);
 		
 		sendPacket("CONN", null);
+		DatagramPacket packet = new DatagramPacket(new byte[PACKET_HEADER_SIZE], PACKET_HEADER_SIZE);
+		socket.receive(packet);
+		String answer = new String(Arrays.copyOf(packet.getData(), 3));
+		
+		if (answer.equals("ACK")) {
+			System.out.println("CLIENT: Connection successful! ");
+			return true;
+		}
+		return false;
 	}
 	
 	private void sendPacket(String label, byte[] data) {
-		if (data != null && data.length + 10 > SERVER_PACKET_SIZE) {
+		if (data != null && data.length + PACKET_HEADER_SIZE > SERVER_PACKET_MAX_SIZE) {
 			System.err.println("Couldn't send packet, too much data. ");
 			return;
 		}
 
-		byte[] header = addArrays(label.getBytes(Charset.forName("UTF-8")), headerConnInfo);
+		byte[] header = addArrays(label.getBytes(Charset.forName("UTF-8")), connectedIP.getAddress());
 		
 		DatagramPacket packet;
 		if (data == null) {
-			packet = new DatagramPacket(header, header.length, connectedIP, connectedPort);
+			packet = new DatagramPacket(header, header.length, connectedIP, SERVER_PORT);
 		}else {
 			byte[] completeData = addArrays(header, data);
-			packet = new DatagramPacket(completeData, completeData.length, connectedIP, connectedPort);
+			packet = new DatagramPacket(completeData, completeData.length, connectedIP, SERVER_PORT);
 		}
 		
 		try {

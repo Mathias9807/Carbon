@@ -6,12 +6,10 @@ public final class HeaderData {
 	
 	public String 		label;
 	public InetAddress 	ip;
-	public int 			port;
 
-	public HeaderData(String l, InetAddress ia, int p) {
+	public HeaderData(String l, InetAddress ia) {
 		label 	= l;
 		ip 		= ia;
-		port 	= p;
 	}
 
 }
