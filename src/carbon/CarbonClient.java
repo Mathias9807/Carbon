@@ -59,13 +59,13 @@ public class CarbonClient {
 		return false;
 	}
 	
-	private void sendPacket(String label, byte[] data) {
+	private void sendPacket(String label, byte[] data) throws UnknownHostException {
 		if (data != null && data.length + PACKET_HEADER_SIZE > SERVER_PACKET_MAX_SIZE) {
 			System.err.println("Couldn't send packet, too much data. ");
 			return;
 		}
 
-		byte[] header = addArrays(label.getBytes(Charset.forName("UTF-8")), connectedIP.getAddress());
+		byte[] header = addArrays(label.getBytes(Charset.forName("UTF-8")), InetAddress.getLocalHost().getAddress());
 		
 		DatagramPacket packet;
 		if (data == null) {
