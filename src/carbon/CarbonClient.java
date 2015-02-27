@@ -3,8 +3,9 @@ package carbon;
 import java.io.IOException;
 import java.net.*;
 import java.nio.charset.Charset;
-import java.util.Arrays;
+import java.util.*;
 
+import carbonserver.DataHandler;
 import static carbonserver.CarbonServer.*;
 
 public class CarbonClient {
@@ -34,6 +35,22 @@ public class CarbonClient {
 			
 			openSocket();
 			connectToServer(connectedIP);
+			
+			sendPacket("PRNT", "Exchange of information. ".getBytes(Charset.forName("UTF-8")));
+			
+			String input;
+			while (true) {
+				Scanner s = new Scanner(System.in);
+				input = s.nextLine();
+				
+				if (input.equals("exit")) {
+					break;
+				}
+				
+				sendPacket("PRNT", input.getBytes(Charset.forName("UTF-8")));
+			}
+			
+			disconnect();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -80,6 +97,12 @@ public class CarbonClient {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+	
+	private void disconnect() throws UnknownHostException {
+		System.out.println("CLIENT: Disconnecting");
+		sendPacket("DSCN", null);
+		socket.close();
 	}
 	
 	public static byte[] addArrays(byte[] arr0, byte[] arr1) {

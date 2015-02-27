@@ -20,7 +20,15 @@ public class CarbonServer {
 	public static final int SERVER_PACKET_MAX_SIZE = 1024;
 	public static final int PACKET_HEADER_SIZE = 8;
 	
+	/**
+	 * List of every client connected. 
+	 */
 	private static ArrayList<Client> clients = new ArrayList<Client>();
+	
+	/**
+	 * A HashMap containing one functional interface for every type of packet it can use. 
+	 */
+	private static Map<String, DataHandler> handler;
 	
 	private static DatagramSocket 	socket;
 	private static boolean 			running;
@@ -46,8 +54,11 @@ public class CarbonServer {
 		System.out.println("SERVER: Starting server");
 		try {
 			socket = new DatagramSocket(SERVER_PORT);
-			System.out.println("SERVER: Opened socket");
-		} catch (SocketException e) {
+			System.out.println("SERVER: Opened socket on " + InetAddress.getLocalHost().getHostAddress() + "::" + SERVER_PORT);
+			
+			handler = new HashMap<String, DataHandler>();
+			loadHandlers();
+		} catch (Exception e) {
 			System.err.println("Failed to open socket on port " + SERVER_PORT + ". "
 					+ "Is a server already running? ");
 			System.exit(-1);
@@ -87,11 +98,14 @@ public class CarbonServer {
 				packet = new DatagramPacket(new byte[SERVER_PACKET_MAX_SIZE], SERVER_PACKET_MAX_SIZE);
 				socket.receive(packet);
 				byte[] data = packet.getData();
+				byte[] body = Arrays.copyOfRange(data, PACKET_HEADER_SIZE, data.length);
 				
 				HeaderData header = readHeader(Arrays.copyOf(data, PACKET_HEADER_SIZE));
 				
-				if (header.label.equals("CONN")) {
-					handleConnectionRequest(header);
+				try {
+					handler.get(header.label).handle(header, body);
+				}catch (NullPointerException e) {
+					System.out.println("SERVER: Received unknown packet type");
 				}
 			} catch (IOException e) {
 			}
@@ -121,6 +135,34 @@ public class CarbonServer {
 	}
 	
 	/**
+	 * Adds the data handlers to the list. 
+	 * 
+	 * There is one data handler for every type of packet, the header's label 
+	 * tells what type a packet's data is. 
+	 */
+	
+	private static void loadHandlers() {
+		handler.put("CONN", (header, data) -> {
+			handleConnectionRequest(header);
+		});
+		
+		handler.put("PRNT", (header, data) -> {
+			String text = new String(data, Charset.forName("UTF-8")).trim();
+			if (text.length() > 0) 
+				System.out.println("SERVER: \"" + text + "\"");
+		});
+		
+		handler.put("DSCN", (header, data) -> {
+			for (int i = 0; i < clients.size(); i++) {
+				if (clients.get(i).getIP().equals(header.ip)) {
+					System.out.println("SERVER: " + header.ip.getHostAddress() + "::" + CLIENT_PORT + " disconnected");
+					clients.remove(i);
+				}
+			}
+		});
+	}
+	
+	/**
 	 * Handles packets with a label of "CONN". Adds a new Client object to the list of clients. 
 	 * @param header
 	 */
@@ -130,8 +172,7 @@ public class CarbonServer {
 		
 		Client c = new Client(header.ip);
 		sendPacket(c, "ACK", null);
-		
-		System.out.println("SERVER: Returned connection ack. ");
+		clients.add(c);
 	}
 	
 	/**
