@@ -5,7 +5,8 @@ import java.net.*;
 import java.nio.charset.Charset;
 import java.util.*;
 
-import carbonserver.DataHandler;
+import carbonserver.*;
+import static carbon.CarbonClient.CLIENT_PORT;
 import static carbonserver.CarbonServer.*;
 
 public class CarbonClient {
@@ -15,8 +16,15 @@ public class CarbonClient {
 	
 	public static CarbonClient client;
 	
+	/**
+	 * A HashMap containing one functional interface for every type of packet the client can read. 
+	 */
+	private Map<String, DataHandler> handler;
+	
 	private DatagramSocket 	socket;
 	private InetAddress		connectedIP;
+	
+	private boolean			running;
 	
 
 	public static void main(String[] args) {
@@ -36,18 +44,32 @@ public class CarbonClient {
 			openSocket();
 			connectToServer(connectedIP);
 			
-			sendPacket("PRNT", "Exchange of information. ".getBytes(Charset.forName("UTF-8")));
+			loadHandlers();
 			
-			String input;
-			while (true) {
-				Scanner s = new Scanner(System.in);
-				input = s.nextLine();
-				
-				if (input.equals("exit")) {
-					break;
+			running = true;
+			new Thread(() -> {
+				String input;
+				while (true) {
+					Scanner s = new Scanner(System.in);
+					input = s.nextLine();
+					
+					if (input.equals("exit")) {
+						break;
+					}
+					
+					try {
+						sendPacket("PRNT", input.getBytes(Charset.forName("UTF-8")));
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+					
+					s.close();
 				}
-				
-				sendPacket("PRNT", input.getBytes(Charset.forName("UTF-8")));
+				running = false;
+			}).start();
+			
+			while (running) {
+				receivePacket();
 			}
 			
 			disconnect();
@@ -74,6 +96,63 @@ public class CarbonClient {
 			return true;
 		}
 		return false;
+	}
+	
+	/**
+	 * Adds the data handlers to the list. 
+	 * 
+	 * There is one data handler for every type of packet, the header's label 
+	 * tells what type a packet's data is. 
+	 */
+	
+	private void loadHandlers() {
+		handler = new HashMap<String, DataHandler>();
+		
+		handler.put("UPDT", (header, data) -> {
+			System.out.println("CLIENT: \"" + new String(data, Charset.forName("UTF-8")) + "\"");
+		});
+	}
+	
+	/**
+	 * Reads the header of any received packet. 
+	 * The header is 8 bytes long and consists of:
+	 * <ul>
+	 * 		<li> A 4 byte UTF-8 encoded string of text labeling the message. </li>
+	 * 		<li> The 4 bytes long IPv4 address of the sender. </li>
+	 * </ul>
+	 * 
+	 * @param data
+	 * @throws UnknownHostException
+	 */
+	
+	private static HeaderData readHeader(byte[] data) throws UnknownHostException {
+		String header = new String(data, Charset.forName("UTF-8"));
+		
+		InetAddress ip = InetAddress.getByAddress(Arrays.copyOfRange(data, 4, 8));
+		
+		String label = header.substring(0, 4);
+		
+		return new HeaderData(label, ip);
+	}
+	
+	/**
+	 * Receives any incoming packet or blocks until there is one, also executes the proper DataHandler. 
+	 * @throws IOException
+	 */
+	
+	private void receivePacket() throws IOException {
+		DatagramPacket packet = new DatagramPacket(new byte[SERVER_PACKET_MAX_SIZE], SERVER_PACKET_MAX_SIZE);
+		socket.receive(packet);
+		byte[] data = packet.getData();
+		byte[] body = Arrays.copyOfRange(data, PACKET_HEADER_SIZE, data.length);
+		
+		HeaderData header = readHeader(Arrays.copyOf(data, PACKET_HEADER_SIZE));
+		
+		try {
+			handler.get(header.label).handle(header, body);
+		}catch (NullPointerException e) {
+			System.out.println("SERVER: Received unknown packet type");
+		}
 	}
 	
 	private void sendPacket(String label, byte[] data) throws UnknownHostException {

@@ -16,9 +16,11 @@ import static carbon.CarbonClient.addArrays;
 
 public class CarbonServer {
 	
-	public static final int SERVER_PORT = 16512;
-	public static final int SERVER_PACKET_MAX_SIZE = 1024;
-	public static final int PACKET_HEADER_SIZE = 8;
+	public static final int 	SERVER_PORT = 16512;
+	public static final int 	SERVER_PACKET_MAX_SIZE = 1024;
+	public static final int 	PACKET_HEADER_SIZE = 8;
+	public static final double 	UPDATES_PER_SECOND = 1;
+	public static final double 	DELTA_TIME = 1 / UPDATES_PER_SECOND;
 	
 	/**
 	 * List of every client connected. 
@@ -26,7 +28,7 @@ public class CarbonServer {
 	private static ArrayList<Client> clients = new ArrayList<Client>();
 	
 	/**
-	 * A HashMap containing one functional interface for every type of packet it can use. 
+	 * A HashMap containing one functional interface for every type of packet the server can read. 
 	 */
 	private static Map<String, DataHandler> handler;
 	
@@ -73,40 +75,58 @@ public class CarbonServer {
 		running = true;
 		
 		new Thread(() -> {
-			byte[] input = new byte[32];
 			while (true) {
 				try {
-					System.in.read(input, 0, input.length);
-					if (new String(input).substring(0, 4).equals("exit")) {
+					Scanner scan = new Scanner(System.in);
+					String input = scan.nextLine();
+					
+					if (input.substring(0, 4).equals("exit")) {
 						shutdownServer();
 						break;
 					}
-					if (new String(input).substring(0, 6).equals("reboot")) {
+					
+					if (input.substring(0, 6).equals("reboot")) {
 						shutdownServer();
 						rebooting = true;
 						break;
 					}
+					
+					scan.close();
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
 		}).start();
 		
-		DatagramPacket packet;
+		new Thread(() -> {
+			long now = System.nanoTime();
+			long past;
+			while (running) {
+				past = System.nanoTime();
+				
+				for (int i = 0; i < clients.size(); i++) {
+					Client c = clients.get(i);
+					
+					sendPacket(c, "UPDT", "Update".getBytes(Charset.forName("UTF-8")));
+				}
+				
+				now = System.nanoTime();
+				double timeLeft = UPDATES_PER_SECOND - (now - past) / 1000000000.0;
+				if (timeLeft < 0) {
+					System.out.println("SERVER: Cycle missed");
+					continue;
+				}
+				try {
+					Thread.sleep((int) (timeLeft * 1000));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}).start();
+		
 		while (running) {
 			try {
-				packet = new DatagramPacket(new byte[SERVER_PACKET_MAX_SIZE], SERVER_PACKET_MAX_SIZE);
-				socket.receive(packet);
-				byte[] data = packet.getData();
-				byte[] body = Arrays.copyOfRange(data, PACKET_HEADER_SIZE, data.length);
-				
-				HeaderData header = readHeader(Arrays.copyOf(data, PACKET_HEADER_SIZE));
-				
-				try {
-					handler.get(header.label).handle(header, body);
-				}catch (NullPointerException e) {
-					System.out.println("SERVER: Received unknown packet type");
-				}
+				receivePacket();
 			} catch (IOException e) {
 			}
 		}
@@ -173,6 +193,26 @@ public class CarbonServer {
 		Client c = new Client(header.ip);
 		sendPacket(c, "ACK", null);
 		clients.add(c);
+	}
+	
+	/**
+	 * Receives any incoming packet or blocks until there is one, also executes the proper DataHandler. 
+	 * @throws IOException
+	 */
+	
+	private static void receivePacket() throws IOException {
+		DatagramPacket packet = new DatagramPacket(new byte[SERVER_PACKET_MAX_SIZE], SERVER_PACKET_MAX_SIZE);
+		socket.receive(packet);
+		byte[] data = packet.getData();
+		byte[] body = Arrays.copyOfRange(data, PACKET_HEADER_SIZE, data.length);
+		
+		HeaderData header = readHeader(Arrays.copyOf(data, PACKET_HEADER_SIZE));
+		
+		try {
+			handler.get(header.label).handle(header, body);
+		}catch (NullPointerException e) {
+			System.out.println("SERVER: Received unknown packet type");
+		}
 	}
 	
 	/**
