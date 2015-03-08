@@ -6,7 +6,6 @@ import java.nio.charset.Charset;
 import java.util.*;
 
 import carbonserver.*;
-import static carbon.CarbonClient.CLIENT_PORT;
 import static carbonserver.CarbonServer.*;
 
 public class CarbonClient {
@@ -18,8 +17,10 @@ public class CarbonClient {
 	
 	/**
 	 * A HashMap containing one functional interface for every type of packet the client can read. 
+	 * 
+	 * Contains a single handler for 'PRNT' packets by default. More handlers can be added externally. 
 	 */
-	private Map<String, DataHandler> handler;
+	public Map<String, DataHandler> handler;
 	
 	private DatagramSocket 	socket;
 	private InetAddress		connectedIP;
@@ -43,8 +44,11 @@ public class CarbonClient {
 			
 			openSocket();
 			connectToServer(connectedIP);
-			
-			loadHandlers();
+
+			handler = new HashMap<String, DataHandler>();
+			handler.put("PRNT", (header, data) -> {
+				System.out.println(new String(data, Charset.forName("UTF-8")).trim());
+			});
 			
 			running = true;
 			new Thread(() -> {
@@ -78,12 +82,12 @@ public class CarbonClient {
 		}
 	}
 	
-	public void openSocket() throws SocketException {
+	private void openSocket() throws SocketException {
 		socket = new DatagramSocket(CLIENT_PORT);
 		System.out.println("CLIENT: Opened socket");
 	}
 	
-	public boolean connectToServer(InetAddress ip) throws IOException {
+	private boolean connectToServer(InetAddress ip) throws IOException {
 		System.out.println("CLIENT: Connecting to server: " + ip.getHostAddress() + "::" + SERVER_PORT);
 		
 		sendPacket("CONN", null);
@@ -96,21 +100,6 @@ public class CarbonClient {
 			return true;
 		}
 		return false;
-	}
-	
-	/**
-	 * Adds the data handlers to the list. 
-	 * 
-	 * There is one data handler for every type of packet, the header's label 
-	 * tells what type a packet's data is. 
-	 */
-	
-	private void loadHandlers() {
-		handler = new HashMap<String, DataHandler>();
-		
-		handler.put("UPDT", (header, data) -> {
-			System.out.println("CLIENT: \"" + new String(data, Charset.forName("UTF-8")) + "\"");
-		});
 	}
 	
 	/**
@@ -155,7 +144,14 @@ public class CarbonClient {
 		}
 	}
 	
-	private void sendPacket(String label, byte[] data) throws UnknownHostException {
+	/**
+	 * Sends a packet of data to the connected server. 
+	 * @param label
+	 * @param data
+	 * @throws UnknownHostException
+	 */
+	
+	public void sendPacket(String label, byte[] data) throws UnknownHostException {
 		if (data != null && data.length + PACKET_HEADER_SIZE > SERVER_PACKET_MAX_SIZE) {
 			System.err.println("Couldn't send packet, too much data. ");
 			return;
