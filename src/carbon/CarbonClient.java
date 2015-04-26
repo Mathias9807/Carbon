@@ -197,7 +197,7 @@ public class CarbonClient {
 		}
 	}
 	
-	private void disconnect() {
+	public void disconnect() {
 		System.out.println("CLIENT: Disconnecting");
 		try {
 			sendPacket("DSCN", null);

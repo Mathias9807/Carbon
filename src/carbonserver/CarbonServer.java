@@ -256,7 +256,7 @@ public class CarbonServer {
 	 * Closes every connection and socket. Allows program to safely exit. 
 	 */
 	
-	private static void shutdownServer() {
+	public static void shutdownServer() {
 		System.out.println("SERVER: Shutting down server");
 		running = false;
 		socket.close();
