@@ -217,12 +217,15 @@ public class CarbonServer {
 	
 	/**
 	 * Sends a packet of data to Client c. The label specifies the packets header label. 
+	 * 
+	 * If the label is shorter than 4 characters it will be padded with white-spaces. 
+	 * If it's longer than 4 characters it will be cut off.  
 	 * @param c
 	 * @param label
 	 * @param data
 	 */
 	
-	private static void sendPacket(Client c, String label, byte[] data) {
+	public static void sendPacket(Client c, String label, byte[] data) {
 		if (data != null && data.length + PACKET_HEADER_SIZE > SERVER_PACKET_MAX_SIZE) {
 			System.err.println("Couldn't send packet, too much data. ");
 			return;
@@ -230,6 +233,8 @@ public class CarbonServer {
 		
 		while (label.length() < 4) 
 			label = label + " ";
+		if (label.length() >= 4) 
+			label = label.substring(0, 4);
 
 		byte[] header = addArrays(label.getBytes(Charset.forName("UTF-8")), c.getIP().getAddress());
 		
