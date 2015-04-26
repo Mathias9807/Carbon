@@ -108,7 +108,7 @@ public class CarbonServer {
 				}
 				
 				try {
-					Thread.sleep((long) (updatesPerSecond * 1000));
+					Thread.sleep((long) (1000 / updatesPerSecond));
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
