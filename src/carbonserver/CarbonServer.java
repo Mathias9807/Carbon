@@ -75,23 +75,24 @@ public class CarbonServer {
 		running = true;
 		
 		new Thread(() -> {
+			@SuppressWarnings("resource")
+			Scanner scan = new Scanner(System.in);
+			String input;
 			while (true) {
 				try {
-					Scanner scan = new Scanner(System.in);
-					String input = scan.nextLine();
+					input = scan.nextLine();
 					
-					if (input.substring(0, 4).equals("exit")) {
+					if (input.equals("exit")) {
 						shutdownServer();
 						break;
 					}
 					
-					if (input.substring(0, 6).equals("reboot")) {
+					if (input.equals("reboot")) {
 						shutdownServer();
 						rebooting = true;
 						break;
 					}
 					
-					scan.close();
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -99,25 +100,15 @@ public class CarbonServer {
 		}).start();
 		
 		new Thread(() -> {
-			long now = System.nanoTime();
-			long past;
 			while (running) {
-				past = System.nanoTime();
-				
 				for (int i = 0; i < clients.size(); i++) {
 					Client c = clients.get(i);
 					
-					sendPacket(c, "UPDT", "Update".getBytes(Charset.forName("UTF-8")));
+					updateClient(c);
 				}
 				
-				now = System.nanoTime();
-				double timeLeft = UPDATES_PER_SECOND - (now - past) / 1000000000.0;
-				if (timeLeft < 0) {
-					System.out.println("SERVER: Cycle missed");
-					continue;
-				}
 				try {
-					Thread.sleep((int) (timeLeft * 1000));
+					Thread.sleep((long) (UPDATES_PER_SECOND * 1000));
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -132,6 +123,14 @@ public class CarbonServer {
 		}
 	}
 	
+	/**
+	 * Updates the client with necessary information. 
+	 * @param c
+	 */
+	private static void updateClient(Client c) {
+		sendPacket(c, "UPDT", "Hello".getBytes(Charset.forName("UTF-8")));
+	}
+
 	/**
 	 * Reads the header of any received packet. 
 	 * The header is 8 bytes long and consists of:

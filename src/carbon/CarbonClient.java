@@ -53,8 +53,9 @@ public class CarbonClient {
 			running = true;
 			new Thread(() -> {
 				String input;
+				@SuppressWarnings("resource")
+				Scanner s = new Scanner(System.in);
 				while (true) {
-					Scanner s = new Scanner(System.in);
 					input = s.nextLine();
 					
 					if (input.equals("exit")) {
@@ -67,16 +68,15 @@ public class CarbonClient {
 						e.printStackTrace();
 					}
 					
-					s.close();
 				}
 				running = false;
+				disconnect();
 			}).start();
 			
-			while (running) {
-				receivePacket();
-			}
-			
-			disconnect();
+			try {
+				while (running) 
+					receivePacket();
+			}catch (Exception e) {}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -140,7 +140,7 @@ public class CarbonClient {
 		try {
 			handler.get(header.label).handle(header, body);
 		}catch (NullPointerException e) {
-			System.out.println("SERVER: Received unknown packet type");
+			System.out.println("CLIENT: Received unknown packet type");
 		}
 	}
 	
@@ -174,9 +174,13 @@ public class CarbonClient {
 		}
 	}
 	
-	private void disconnect() throws UnknownHostException {
+	private void disconnect() {
 		System.out.println("CLIENT: Disconnecting");
-		sendPacket("DSCN", null);
+		try {
+			sendPacket("DSCN", null);
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		}
 		socket.close();
 	}
 	
