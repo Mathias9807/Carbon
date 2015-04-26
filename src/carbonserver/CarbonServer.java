@@ -19,8 +19,8 @@ public class CarbonServer {
 	public static final int 	SERVER_PORT = 16512;
 	public static final int 	SERVER_PACKET_MAX_SIZE = 1024;
 	public static final int 	PACKET_HEADER_SIZE = 8;
-	public static final double 	UPDATES_PER_SECOND = 1;
-	public static final double 	DELTA_TIME = 1 / UPDATES_PER_SECOND;
+	
+	public static double 		updatesPerSecond = 1;
 	
 	/**
 	 * List of every client connected. 
@@ -108,7 +108,7 @@ public class CarbonServer {
 				}
 				
 				try {
-					Thread.sleep((long) (UPDATES_PER_SECOND * 1000));
+					Thread.sleep((long) (updatesPerSecond * 1000));
 				} catch (Exception e) {
 					e.printStackTrace();
 				}

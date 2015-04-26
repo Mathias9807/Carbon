@@ -13,6 +13,8 @@ public class CarbonClient {
 	public static final int CLIENT_PORT = 16513;
 	public static final int PACKET_HEADER_SIZE = 8;
 	
+	public static double 	updatesPerSecond = 1;
+	
 	public static CarbonClient client;
 	
 	/**
@@ -21,6 +23,8 @@ public class CarbonClient {
 	 * Contains a single handler for 'PRNT' packets by default. More handlers can be added externally. 
 	 */
 	public Map<String, DataHandler> handler;
+	
+	public Functional functionOnUpdate;
 	
 	private DatagramSocket 	socket;
 	private InetAddress		connectedIP;
@@ -49,6 +53,13 @@ public class CarbonClient {
 			handler.put("PRNT", (header, data) -> {
 				System.out.println(new String(data, Charset.forName("UTF-8")).trim());
 			});
+			functionOnUpdate = () -> {
+				try {
+					sendPacket("UPDT", "SUP".getBytes(Charset.forName("UTF-8")));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			};
 			
 			running = true;
 			new Thread(() -> {
@@ -71,6 +82,18 @@ public class CarbonClient {
 				}
 				running = false;
 				disconnect();
+			}).start();
+			
+			new Thread(() -> {
+				while (running) {
+					functionOnUpdate.execute();
+					
+					try {
+						Thread.sleep((long) (updatesPerSecond * 1000));
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
 			}).start();
 			
 			try {
