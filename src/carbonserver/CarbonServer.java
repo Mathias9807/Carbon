@@ -30,7 +30,7 @@ public class CarbonServer {
 	/**
 	 * A HashMap containing one functional interface for every type of packet the server can read. 
 	 */
-	private static Map<String, DataHandler> handler;
+	public static Map<String, DataHandler> handler;
 	
 	private static DatagramSocket 	socket;
 	private static boolean 			running;
