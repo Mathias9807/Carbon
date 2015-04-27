@@ -25,9 +25,9 @@ public class CarbonClient {
 	 * 
 	 * Contains a single handler for 'PRNT' packets by default. More handlers can be added externally. 
 	 */
-	public Map<String, DataHandler> handler;
+	public Map<String, DataHandler> handler = new HashMap<String, DataHandler>();
 	
-	public Functional eventOnUpdate;
+	public Functional eventOnUpdate = () -> {};
 	
 	private DatagramSocket 	socket;
 	private InetAddress		connectedIP;
@@ -57,17 +57,9 @@ public class CarbonClient {
 			openSocket();
 			connectToServer(connectedIP);
 
-			handler = new HashMap<String, DataHandler>();
 			handler.put("PRNT", (header, data) -> {
 				System.out.println(new String(data, Charset.forName("UTF-8")).trim());
 			});
-			eventOnUpdate = () -> {
-				try {
-					sendPacket("UPDT", "Default update".getBytes(Charset.forName("UTF-8")));
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			};
 			
 			running = true;
 			if (useSystemInputStream) new Thread(() -> {
