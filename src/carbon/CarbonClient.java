@@ -34,6 +34,11 @@ public class CarbonClient {
 	
 	private boolean			running;
 	
+	/**
+	 * Decides whether or not the server will read instructions from the systems default InputStream. 
+	 */
+	public static boolean 			useSystemInputStream = true;
+	
 
 	public static void main(String[] args) {
 		if (args.length == 0) {
@@ -58,14 +63,14 @@ public class CarbonClient {
 			});
 			eventOnUpdate = () -> {
 				try {
-					sendPacket("UPDT", "SUP".getBytes(Charset.forName("UTF-8")));
+					sendPacket("UPDT", "Default update".getBytes(Charset.forName("UTF-8")));
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			};
 			
 			running = true;
-			new Thread(() -> {
+			if (useSystemInputStream) new Thread(() -> {
 				String input;
 				@SuppressWarnings("resource")
 				Scanner s = new Scanner(System.in);

@@ -43,6 +43,11 @@ public class CarbonServer {
 	private static DatagramSocket 	socket;
 	private static boolean 			running;
 	private static boolean 			rebooting;
+	
+	/**
+	 * Decides whether or not the server will read instructions from the systems default InputStream. 
+	 */
+	public static boolean 			useSystemInputStream = true;
 
 	public static void main(String[] args) {
 		do {
@@ -83,7 +88,7 @@ public class CarbonServer {
 	private static void runServer() {
 		running = true;
 		
-		new Thread(() -> {
+		if (useSystemInputStream) new Thread(() -> {
 			@SuppressWarnings("resource")
 			Scanner scan = new Scanner(System.in);
 			String input;
