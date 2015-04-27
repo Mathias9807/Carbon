@@ -201,6 +201,7 @@ public class CarbonClient {
 	
 	public void disconnect() {
 		System.out.println("CLIENT: Disconnecting");
+		running = false;
 		try {
 			sendPacket("DSCN", null);
 		} catch (UnknownHostException e) {
