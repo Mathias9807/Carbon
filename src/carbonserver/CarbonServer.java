@@ -20,6 +20,9 @@ public class CarbonServer {
 	public static final int 	SERVER_PACKET_MAX_SIZE = 1024;
 	public static final int 	PACKET_HEADER_SIZE = 8;
 	
+	/**
+	 * How many times per second eventOnUpdate will be executed. Can be set to 0. 
+	 */
 	public static double 		updatesPerSecond = 1;
 	
 	/**
@@ -31,6 +34,11 @@ public class CarbonServer {
 	 * A HashMap containing one functional interface for every type of packet the server can read. 
 	 */
 	public static Map<String, DataHandler> handler;
+	
+	/**
+	 * Functional Interface that gets executed as often as updatesPerSecond says. 
+	 */
+	public static FunctionalClient eventOnUpdate;
 	
 	private static DatagramSocket 	socket;
 	private static boolean 			running;
@@ -60,6 +68,7 @@ public class CarbonServer {
 			
 			handler = new HashMap<String, DataHandler>();
 			loadHandlers();
+			eventOnUpdate = (c) -> {};
 		} catch (Exception e) {
 			System.err.println("Failed to open socket on port " + SERVER_PORT + ". "
 					+ "Is a server already running? ");
@@ -100,11 +109,13 @@ public class CarbonServer {
 		}).start();
 		
 		new Thread(() -> {
+			if (updatesPerSecond == 0) return;
+			
 			while (running) {
 				for (int i = 0; i < clients.size(); i++) {
 					Client c = clients.get(i);
 					
-					updateClient(c);
+					eventOnUpdate.execute(c);
 				}
 				
 				try {
@@ -121,14 +132,6 @@ public class CarbonServer {
 			} catch (IOException e) {
 			}
 		}
-	}
-	
-	/**
-	 * Updates the client with necessary information. 
-	 * @param c
-	 */
-	private static void updateClient(Client c) {
-		sendPacket(c, "UPDT", "Hello".getBytes(Charset.forName("UTF-8")));
 	}
 
 	/**

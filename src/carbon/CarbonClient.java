@@ -12,7 +12,10 @@ public class CarbonClient {
 	
 	public static final int CLIENT_PORT = 16513;
 	public static final int PACKET_HEADER_SIZE = 8;
-	
+
+	/**
+	 * How many times per second eventOnUpdate will be executed. Can be set to 0. 
+	 */
 	public static double 	updatesPerSecond = 1;
 	
 	public static CarbonClient client;
@@ -24,7 +27,7 @@ public class CarbonClient {
 	 */
 	public Map<String, DataHandler> handler;
 	
-	public Functional functionOnUpdate;
+	public Functional eventOnUpdate;
 	
 	private DatagramSocket 	socket;
 	private InetAddress		connectedIP;
@@ -53,7 +56,7 @@ public class CarbonClient {
 			handler.put("PRNT", (header, data) -> {
 				System.out.println(new String(data, Charset.forName("UTF-8")).trim());
 			});
-			functionOnUpdate = () -> {
+			eventOnUpdate = () -> {
 				try {
 					sendPacket("UPDT", "SUP".getBytes(Charset.forName("UTF-8")));
 				} catch (Exception e) {
@@ -85,8 +88,10 @@ public class CarbonClient {
 			}).start();
 			
 			new Thread(() -> {
+				if (updatesPerSecond == 0) return;
+				
 				while (running) {
-					functionOnUpdate.execute();
+					eventOnUpdate.execute();
 					
 					try {
 						Thread.sleep((long) (1000 / updatesPerSecond));
