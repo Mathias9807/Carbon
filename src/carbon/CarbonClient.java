@@ -5,8 +5,6 @@ import java.net.*;
 import java.nio.charset.Charset;
 import java.util.*;
 
-import com.sun.corba.se.impl.ior.ByteBuffer;
-
 import carbonserver.*;
 import static carbonserver.CarbonServer.*;
 
@@ -32,6 +30,8 @@ public class CarbonClient {
 	
 	private DatagramSocket 	socket;
 	private InetAddress		connectedIP;
+	
+	private Thread 			inputThread, receiveThread, updateThread;
 	
 	private boolean			running;
 	
@@ -59,33 +59,39 @@ public class CarbonClient {
 			connectToServer(connectedIP);
 
 			handler.put("PRNT", (header, data) -> {
-				System.out.println(new String(data, Charset.forName("UTF-8")).trim());
+				System.out.println("CLIENT: " 
+						+ new String(data, Charset.forName("UTF-8")).trim());
+			});
+			
+			handler.put("DSCN", (header, data) -> {
+				client.disconnect();
 			});
 			
 			running = true;
-			if (useSystemInputStream) new Thread(() -> {
-				String input;
+			if (useSystemInputStream) inputThread = new Thread(() -> {
+				String input = null;
 				@SuppressWarnings("resource")
 				Scanner s = new Scanner(System.in);
-				while (true) {
-					input = s.nextLine();
+				while (running) {
+					try {
+						input = s.nextLine();
+					}catch (Exception e) { break; }
 					
 					if (input.equals("exit")) {
+						disconnect();
 						break;
 					}
 					
 					try {
-						sendPacket("PRNT", input.getBytes(Charset.forName("UTF-8")));
+						sendPacket("MSSG", input.getBytes(Charset.forName("UTF-8")));
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
 					
 				}
-				running = false;
-				disconnect();
-			}).start();
+			});
 			
-			new Thread(() -> {
+			updateThread = new Thread(() -> {
 				if (updatesPerSecond == 0) return;
 				
 				while (running) {
@@ -97,14 +103,18 @@ public class CarbonClient {
 						e.printStackTrace();
 					}
 				}
-			}).start();
+			});
 			
-			new Thread(() -> {
+			receiveThread = new Thread(() -> {
 				try {
 					while (running) 
 						receivePacket();
 				}catch (Exception e) {}
 			});
+			
+			inputThread.start();
+			updateThread.start();
+			receiveThread.start();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -170,6 +180,7 @@ public class CarbonClient {
 	private void receivePacket() throws IOException {
 		DatagramPacket packet = new DatagramPacket(new byte[SERVER_PACKET_MAX_SIZE], SERVER_PACKET_MAX_SIZE);
 		socket.receive(packet);
+		
 		byte[] data = packet.getData();
 		byte[] body = Arrays.copyOfRange(data, PACKET_HEADER_SIZE, data.length);
 		
@@ -178,7 +189,7 @@ public class CarbonClient {
 		try {
 			handler.get(header.label).handle(header, body);
 		}catch (NullPointerException e) {
-			System.out.println("CLIENT: Received unknown packet type");
+			System.out.println("CLIENT: Received unknown packet type: " + header.label);
 		}
 	}
 	
@@ -225,11 +236,18 @@ public class CarbonClient {
 	public void disconnect() {
 		System.out.println("CLIENT: Disconnecting");
 		running = false;
+		if (useSystemInputStream)
+			try {
+				System.in.close();
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			}
 		try {
 			sendPacket("DSCN", null);
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
 		}
+		
 		socket.close();
 	}
 	

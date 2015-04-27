@@ -104,6 +104,10 @@ public class CarbonServer {
 						break;
 					}
 					
+					for (int i = 0; i < clients.size(); i++) {
+						sendPacket(clients.get(i), "PRNT", ("[Server] " + input).getBytes(Charset.forName("UTF-8")));
+					}
+					
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -139,10 +143,11 @@ public class CarbonServer {
 
 	/**
 	 * Reads the header of any received packet. 
-	 * The header is 8 bytes long and consists of:
+	 * The header is 12 bytes long and consists of:
 	 * <ul>
 	 * 		<li> A 4 byte UTF-8 encoded string of text labeling the message. </li>
 	 * 		<li> The 4 bytes long IPv4 address of the sender. </li>
+	 * 		<li> The 4 bytes long port number of the sender. </li>
 	 * </ul>
 	 * 
 	 * @param data
@@ -183,6 +188,17 @@ public class CarbonServer {
 				System.out.println("SERVER: \"" + text + "\"");
 		});
 		
+		handler.put("MSSG", (header, data) -> {
+			String text = "[" + header.ip.getHostAddress() + "::" + header.port + "] " 
+					+ new String(data, Charset.forName("UTF-8")).trim();
+			
+			for (int i = 0; i < clients.size(); i++) {
+				Client c = clients.get(i);
+				
+				sendPacket(c, "PRNT", text.getBytes(Charset.forName("UTF-8")));
+			}
+		});
+		
 		handler.put("DSCN", (header, data) -> {
 			handleDisconnect(header);
 		});
@@ -218,6 +234,7 @@ public class CarbonServer {
 	private static void receivePacket() throws IOException {
 		DatagramPacket packet = new DatagramPacket(new byte[SERVER_PACKET_MAX_SIZE], SERVER_PACKET_MAX_SIZE);
 		socket.receive(packet);
+		
 		byte[] data = packet.getData();
 		byte[] body = Arrays.copyOfRange(data, PACKET_HEADER_SIZE, data.length);
 		
@@ -226,7 +243,8 @@ public class CarbonServer {
 		try {
 			handler.get(header.label).handle(header, body);
 		}catch (NullPointerException e) {
-			System.out.println("SERVER: Received unknown packet type");
+			System.out.println("SERVER: Received unknown packet type: " + header.label);
+			e.printStackTrace();
 		}
 	}
 	
@@ -248,10 +266,18 @@ public class CarbonServer {
 		
 		while (label.length() < 4) 
 			label = label + " ";
-		if (label.length() >= 4) 
+		if (label.length() > 4) 
 			label = label.substring(0, 4);
+		
+		byte[] portArray = new byte[4];
+		portArray[0] = (byte) (socket.getLocalPort() >> 24 & 0xFF);
+		portArray[1] = (byte) (socket.getLocalPort() >> 16 & 0xFF);
+		portArray[2] = (byte) (socket.getLocalPort() >> 8 & 0xFF);
+		portArray[3] = (byte) (socket.getLocalPort() & 0xFF);
 
-		byte[] header = addArrays(label.getBytes(Charset.forName("UTF-8")), c.getIP().getAddress());
+		byte[] header = addArrays(
+				addArrays(label.getBytes(Charset.forName("UTF-8")), c.getIP().getAddress()), 
+				portArray);
 		
 		DatagramPacket packet;
 		if (data == null) {
@@ -273,6 +299,13 @@ public class CarbonServer {
 	 */
 	
 	public static void shutdownServer() {
+		System.out.println("SERVER: Disconnecting clients");
+		for (int i = 0; i < clients.size(); i++) {
+			Client c = clients.get(i);
+			System.out.println("SERVER: Disconnecting: " + c.getIP().getHostAddress());
+			sendPacket(c, "DSCN", null);
+		}
+		
 		System.out.println("SERVER: Shutting down server");
 		running = false;
 		socket.close();
