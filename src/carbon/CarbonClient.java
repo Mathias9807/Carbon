@@ -25,9 +25,9 @@ public class CarbonClient {
 	 * 
 	 * Contains a single handler for 'PRNT' packets by default. More handlers can be added externally. 
 	 */
-	public Map<String, DataHandler> handler = new HashMap<String, DataHandler>();
+	public static Map<String, DataHandler> handler = new HashMap<String, DataHandler>();
 	
-	public Functional eventOnUpdate = () -> {};
+	public static Functional eventOnUpdate = () -> {};
 	
 	private DatagramSocket 	socket;
 	private InetAddress		connectedIP;
