@@ -5,7 +5,6 @@ import java.net.*;
 import java.nio.charset.Charset;
 import java.util.*;
 
-import static carbon.CarbonClient.CLIENT_PORT;
 import static carbon.CarbonClient.addArrays;
 
 /**
@@ -18,7 +17,7 @@ public class CarbonServer {
 	
 	public static final int 	SERVER_PORT = 16512;
 	public static final int 	SERVER_PACKET_MAX_SIZE = 1024;
-	public static final int 	PACKET_HEADER_SIZE = 8;
+	public static final int 	PACKET_HEADER_SIZE = 12;
 	
 	/**
 	 * How many times per second eventOnUpdate will be executed. Can be set to 0. 
@@ -38,7 +37,7 @@ public class CarbonServer {
 	/**
 	 * Functional Interface that gets executed as often as updatesPerSecond says. 
 	 */
-	public static FunctionalClient eventOnUpdate;
+	public static FunctionalClient eventOnUpdate = (c) -> {};
 	
 	private static DatagramSocket 	socket;
 	private static boolean 			running;
@@ -72,7 +71,6 @@ public class CarbonServer {
 			System.out.println("SERVER: Opened socket on " + InetAddress.getLocalHost().getHostAddress() + "::" + SERVER_PORT);
 			
 			loadHandlers();
-			eventOnUpdate = (c) -> {};
 		} catch (Exception e) {
 			System.err.println("Failed to open socket on port " + SERVER_PORT + ". "
 					+ "Is a server already running? ");
@@ -116,11 +114,12 @@ public class CarbonServer {
 			if (updatesPerSecond == 0) return;
 			
 			while (running) {
-				for (int i = 0; i < clients.size(); i++) {
-					Client c = clients.get(i);
-					
-					eventOnUpdate.execute(c);
-				}
+				if (eventOnUpdate != null) 
+					for (int i = 0; i < clients.size(); i++) {
+						Client c = clients.get(i);
+						
+						eventOnUpdate.execute(c);
+					}
 				
 				try {
 					Thread.sleep((long) (1000 / updatesPerSecond));
@@ -155,9 +154,15 @@ public class CarbonServer {
 		
 		InetAddress ip = InetAddress.getByAddress(Arrays.copyOfRange(data, 4, 8));
 		
+		int port = 0;
+		port += data[8] << 24 & 0xFF000000;
+		port += data[9] << 16 & 0xFF0000;
+		port += data[10] << 8 & 0xFF00;
+		port += data[11] & 0xFF;
+		
 		String label = header.substring(0, 4);
 		
-		return new HeaderData(label, ip);
+		return new HeaderData(label, ip, port);
 	}
 	
 	/**
@@ -179,12 +184,7 @@ public class CarbonServer {
 		});
 		
 		handler.put("DSCN", (header, data) -> {
-			for (int i = 0; i < clients.size(); i++) {
-				if (clients.get(i).getIP().equals(header.ip)) {
-					System.out.println("SERVER: " + header.ip.getHostAddress() + "::" + CLIENT_PORT + " disconnected");
-					clients.remove(i);
-				}
-			}
+			handleDisconnect(header);
 		});
 	}
 	
@@ -193,12 +193,21 @@ public class CarbonServer {
 	 * @param header
 	 */
 	
-	private static void handleConnectionRequest(HeaderData header) {
-		System.out.println("SERVER: Received connection request from: " + header.ip.getHostAddress() + "::" + CLIENT_PORT);
+	public static void handleConnectionRequest(HeaderData header) {
+		Client c = new Client(header.ip, header.port);
+		System.out.println("SERVER: Received connection request from: " + c.getIP().getHostAddress() + "::" + c.getPort());
 		
-		Client c = new Client(header.ip);
 		sendPacket(c, "ACK", null);
 		clients.add(c);
+	}
+	
+	public static void handleDisconnect(HeaderData header) {
+		for (int i = 0; i < clients.size(); i++) {
+			if (clients.get(i).getIP().equals(header.ip)) {
+				System.out.println("SERVER: " + header.ip.getHostAddress() + "::" + header.port + " disconnected");
+				clients.remove(i);
+			}
+		}
 	}
 	
 	/**
@@ -246,10 +255,10 @@ public class CarbonServer {
 		
 		DatagramPacket packet;
 		if (data == null) {
-			packet = new DatagramPacket(header, header.length, c.getIP(), CLIENT_PORT);
+			packet = new DatagramPacket(header, header.length, c.getIP(), c.getPort());
 		}else {
 			byte[] completeData = addArrays(header, data);
-			packet = new DatagramPacket(completeData, completeData.length, c.getIP(), CLIENT_PORT);
+			packet = new DatagramPacket(completeData, completeData.length, c.getIP(), c.getPort());
 		}
 		
 		try {

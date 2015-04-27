@@ -5,13 +5,14 @@ import java.net.*;
 import java.nio.charset.Charset;
 import java.util.*;
 
+import com.sun.corba.se.impl.ior.ByteBuffer;
+
 import carbonserver.*;
 import static carbonserver.CarbonServer.*;
 
 public class CarbonClient {
 	
-	public static final int CLIENT_PORT = 16513;
-	public static final int PACKET_HEADER_SIZE = 8;
+	public static final int PACKET_HEADER_SIZE = 12;
 
 	/**
 	 * How many times per second eventOnUpdate will be executed. Can be set to 0. 
@@ -98,18 +99,30 @@ public class CarbonClient {
 				}
 			}).start();
 			
-			try {
-				while (running) 
-					receivePacket();
-			}catch (Exception e) {}
+			new Thread(() -> {
+				try {
+					while (running) 
+						receivePacket();
+				}catch (Exception e) {}
+			});
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
 	
-	private void openSocket() throws SocketException {
-		socket = new DatagramSocket(CLIENT_PORT);
-		System.out.println("CLIENT: Opened socket");
+	private void openSocket() {
+		int potentialPort = 16513;
+		while (socket == null) {
+			DatagramSocket ds;
+			try {
+				ds = new DatagramSocket(potentialPort);
+			} catch (SocketException e) {
+				potentialPort++;
+				continue;
+			}
+			socket = ds;
+		}
+		System.out.println("CLIENT: Opened socket on port: " + socket.getLocalPort());
 	}
 	
 	private boolean connectToServer(InetAddress ip) throws IOException {
@@ -146,7 +159,7 @@ public class CarbonClient {
 		
 		String label = header.substring(0, 4);
 		
-		return new HeaderData(label, ip);
+		return new HeaderData(label, ip, SERVER_PORT);
 	}
 	
 	/**
@@ -181,8 +194,18 @@ public class CarbonClient {
 			System.err.println("Couldn't send packet, too much data. ");
 			return;
 		}
-
-		byte[] header = addArrays(label.getBytes(Charset.forName("UTF-8")), InetAddress.getLocalHost().getAddress());
+		
+		byte[] portArray = new byte[4];
+		portArray[0] = (byte) (socket.getLocalPort() >> 24 & 0xFF);
+		portArray[1] = (byte) (socket.getLocalPort() >> 16 & 0xFF);
+		portArray[2] = (byte) (socket.getLocalPort() >> 8 & 0xFF);
+		portArray[3] = (byte) (socket.getLocalPort() & 0xFF);
+		
+		byte[] header = addArrays(
+				addArrays(
+						label.getBytes(Charset.forName("UTF-8")), 
+						InetAddress.getLocalHost().getAddress()), 
+				portArray);
 		
 		DatagramPacket packet;
 		if (data == null) {
