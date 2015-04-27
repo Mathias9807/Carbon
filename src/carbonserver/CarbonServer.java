@@ -28,7 +28,7 @@ public class CarbonServer {
 	/**
 	 * List of every client connected. 
 	 */
-	private static ArrayList<Client> clients = new ArrayList<Client>();
+	public static ArrayList<Client> clients = new ArrayList<Client>();
 	
 	/**
 	 * A HashMap containing one functional interface for every type of packet the server can read. 
