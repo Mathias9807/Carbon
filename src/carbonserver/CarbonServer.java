@@ -33,7 +33,7 @@ public class CarbonServer {
 	/**
 	 * A HashMap containing one functional interface for every type of packet the server can read. 
 	 */
-	public static Map<String, DataHandler> handler;
+	public static Map<String, DataHandler> handler = new HashMap<String, DataHandler>();;
 	
 	/**
 	 * Functional Interface that gets executed as often as updatesPerSecond says. 
@@ -71,7 +71,6 @@ public class CarbonServer {
 			socket = new DatagramSocket(SERVER_PORT);
 			System.out.println("SERVER: Opened socket on " + InetAddress.getLocalHost().getHostAddress() + "::" + SERVER_PORT);
 			
-			handler = new HashMap<String, DataHandler>();
 			loadHandlers();
 			eventOnUpdate = (c) -> {};
 		} catch (Exception e) {
