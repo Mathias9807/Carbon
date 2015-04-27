@@ -112,7 +112,7 @@ public class CarbonClient {
 				}catch (Exception e) {}
 			});
 			
-			inputThread.start();
+			if (useSystemInputStream) inputThread.start();
 			updateThread.start();
 			receiveThread.start();
 		} catch (Exception e) {
