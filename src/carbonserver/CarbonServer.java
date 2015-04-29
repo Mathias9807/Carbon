@@ -155,8 +155,6 @@ public class CarbonServer {
 	 */
 	
 	private static HeaderData readHeader(byte[] data) throws UnknownHostException {
-		String header = new String(data, Charset.forName("UTF-8"));
-		
 		InetAddress ip = InetAddress.getByAddress(Arrays.copyOfRange(data, 4, 8));
 		
 		int port = 0;
@@ -165,7 +163,7 @@ public class CarbonServer {
 		port += data[10] << 8 & 0xFF00;
 		port += data[11] & 0xFF;
 		
-		String label = header.substring(0, 4);
+		String label = new String(Arrays.copyOfRange(data, 0, 4), Charset.forName("UTF-8"));
 		
 		return new HeaderData(label, ip, port);
 	}
@@ -266,8 +264,7 @@ public class CarbonServer {
 		
 		while (label.length() < 4) 
 			label = label + " ";
-		if (label.length() > 4) 
-			label = label.substring(0, 4);
+		byte[] labelArray = Arrays.copyOf(label.getBytes(Charset.forName("UTF-8")), 4);
 		
 		byte[] portArray = new byte[4];
 		portArray[0] = (byte) (socket.getLocalPort() >> 24 & 0xFF);
@@ -276,7 +273,7 @@ public class CarbonServer {
 		portArray[3] = (byte) (socket.getLocalPort() & 0xFF);
 
 		byte[] header = addArrays(
-				addArrays(label.getBytes(Charset.forName("UTF-8")), c.getIP().getAddress()), 
+				addArrays(labelArray, c.getIP().getAddress()), 
 				portArray);
 		
 		DatagramPacket packet;
