@@ -193,7 +193,8 @@ public class CarbonServer {
 			for (int i = 0; i < clients.size(); i++) {
 				Client c = clients.get(i);
 				
-				sendPacket(c, "PRNT", text.getBytes(Charset.forName("UTF-8")));
+				sendPacket(new Client(header.ip, header.port), 
+						c, "PRNT", text.getBytes(Charset.forName("UTF-8")));
 			}
 		});
 		
@@ -273,6 +274,23 @@ public class CarbonServer {
 	 */
 	
 	public static void sendPacket(Client c, String label, byte[] data) {
+		sendPacket(new Client(socket.getLocalAddress(), socket.getLocalPort()), 
+				c, label, data);
+	}
+	
+	/**
+	 * Sends a packet of data to Client c. The label specifies the packets header label. 
+	 * 
+	 * This packet is sent with a senders address of fromClient. Not the servers address. 
+	 * 
+	 * If the label is shorter than 4 characters it will be padded with white-spaces. 
+	 * If it's longer than 4 characters it will be cut off.  
+	 * @param c
+	 * @param label
+	 * @param data
+	 */
+	
+	public static void sendPacket(Client fromClient, Client toClient, String label, byte[] data) {
 		if (data != null && data.length + PACKET_HEADER_SIZE > SERVER_PACKET_MAX_SIZE) {
 			System.err.println("Couldn't send packet, too much data. ");
 			return;
@@ -283,21 +301,23 @@ public class CarbonServer {
 		byte[] labelArray = Arrays.copyOf(label.getBytes(Charset.forName("UTF-8")), 4);
 		
 		byte[] portArray = new byte[4];
-		portArray[0] = (byte) (socket.getLocalPort() >> 24 & 0xFF);
-		portArray[1] = (byte) (socket.getLocalPort() >> 16 & 0xFF);
-		portArray[2] = (byte) (socket.getLocalPort() >> 8 & 0xFF);
-		portArray[3] = (byte) (socket.getLocalPort() & 0xFF);
+		portArray[0] = (byte) (fromClient.getPort() >> 24 & 0xFF);
+		portArray[1] = (byte) (fromClient.getPort() >> 16 & 0xFF);
+		portArray[2] = (byte) (fromClient.getPort() >> 8 & 0xFF);
+		portArray[3] = (byte) (fromClient.getPort() & 0xFF);
 
 		byte[] header = addArrays(
-				addArrays(labelArray, c.getIP().getAddress()), 
+				addArrays(labelArray, fromClient.getIP().getAddress()), 
 				portArray);
 		
 		DatagramPacket packet;
 		if (data == null) {
-			packet = new DatagramPacket(header, header.length, c.getIP(), c.getPort());
+			packet = new DatagramPacket(header, header.length, 
+					toClient.getIP(), toClient.getPort());
 		}else {
 			byte[] completeData = addArrays(header, data);
-			packet = new DatagramPacket(completeData, completeData.length, c.getIP(), c.getPort());
+			packet = new DatagramPacket(completeData, completeData.length, 
+					toClient.getIP(), toClient.getPort());
 		}
 		
 		try {
