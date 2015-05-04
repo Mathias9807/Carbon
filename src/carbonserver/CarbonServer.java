@@ -32,7 +32,7 @@ public class CarbonServer {
 	/**
 	 * A HashMap containing one functional interface for every type of packet the server can read. 
 	 */
-	public static Map<String, DataHandler> handler = new HashMap<String, DataHandler>();;
+	private static Map<String, DataHandler> handler = new HashMap<String, DataHandler>();;
 	
 	/**
 	 * Functional Interface that gets executed as often as updatesPerSecond says. 
@@ -82,11 +82,11 @@ public class CarbonServer {
 	 * Starts running the servers main loop. 
 	 */
 	
+	@SuppressWarnings("resource")
 	private static void runServer() {
 		running = true;
 		
 		if (useSystemInputStream) new Thread(() -> {
-			@SuppressWarnings("resource")
 			Scanner scan = new Scanner(System.in);
 			String input;
 			while (true) {
@@ -176,17 +176,17 @@ public class CarbonServer {
 	 */
 	
 	private static void loadHandlers() {
-		handler.put("CONN", (header, data) -> {
+		addHandler("CONN", (header, data) -> {
 			handleConnectionRequest(header);
 		});
 		
-		handler.put("PRNT", (header, data) -> {
+		addHandler("PRNT", (header, data) -> {
 			String text = new String(data, Charset.forName("UTF-8")).trim();
 			if (text.length() > 0) 
 				System.out.println("SERVER: \"" + text + "\"");
 		});
 		
-		handler.put("MSSG", (header, data) -> {
+		addHandler("MSSG", (header, data) -> {
 			String text = "[" + header.ip.getHostAddress() + "::" + header.port + "] " 
 					+ new String(data, Charset.forName("UTF-8")).trim();
 			
@@ -197,9 +197,25 @@ public class CarbonServer {
 			}
 		});
 		
-		handler.put("DSCN", (header, data) -> {
+		addHandler("DSCN", (header, data) -> {
 			handleDisconnect(header);
 		});
+	}
+	
+	/**
+	 * Adds DataHandler dh to the map of handlers if there is no handler for the key already. 
+	 * @param key
+	 * @param dh
+	 */
+	
+	public static void addHandler(String key, DataHandler dh) {
+		if (handler.containsKey(key)) return;
+		
+		handler.put(key, dh);
+	}
+	
+	public static Map<String, DataHandler> getHandler() {
+		return handler;
 	}
 	
 	/**

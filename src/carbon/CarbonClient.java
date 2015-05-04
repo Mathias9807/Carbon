@@ -24,7 +24,7 @@ public class CarbonClient {
 	 * 
 	 * Contains a single handler for 'PRNT' packets by default. More handlers can be added externally. 
 	 */
-	public static Map<String, DataHandler> handler = new HashMap<String, DataHandler>();
+	private static Map<String, DataHandler> handler = new HashMap<String, DataHandler>();
 	
 	public static Functional eventOnUpdate = () -> {};
 	
@@ -51,6 +51,7 @@ public class CarbonClient {
 		client = new CarbonClient(args[0]);
 	}
 	
+	@SuppressWarnings("resource")
 	public CarbonClient(String ipAddress) {
 		try {
 			connectedIP = InetAddress.getByName(ipAddress);
@@ -58,19 +59,18 @@ public class CarbonClient {
 			openSocket();
 			connectToServer(connectedIP);
 
-			handler.put("PRNT", (header, data) -> {
+			addHandler("PRNT", (header, data) -> {
 				System.out.println("CLIENT: " 
 						+ new String(data, Charset.forName("UTF-8")).trim());
 			});
 			
-			handler.put("DSCN", (header, data) -> {
+			addHandler("DSCN", (header, data) -> {
 				client.disconnect();
 			});
 			
 			running = true;
 			if (useSystemInputStream) inputThread = new Thread(() -> {
 				String input = null;
-				@SuppressWarnings("resource")
 				Scanner s = new Scanner(System.in);
 				while (running) {
 					try {
@@ -232,6 +232,22 @@ public class CarbonClient {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+	
+	/**
+	 * Adds DataHandler dh to the map of handlers if there is no handler for the key already. 
+	 * @param key
+	 * @param dh
+	 */
+	
+	public static void addHandler(String key, DataHandler dh) {
+		if (handler.containsKey(key)) return;
+		
+		handler.put(key, dh);
+	}
+	
+	public static Map<String, DataHandler> getHandler() {
+		return handler;
 	}
 	
 	public void disconnect() {
