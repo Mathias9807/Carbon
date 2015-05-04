@@ -228,7 +228,7 @@ public class CarbonServer {
 		Client c = new Client(header.ip, header.port);
 		System.out.println("SERVER: Received connection request from: " + c.getIP().getHostAddress() + "::" + c.getPort());
 		
-		sendPacket(c, "ACK", null);
+		sendPacket(c, "ACKN", null);
 		clients.add(c);
 	}
 	

@@ -57,7 +57,8 @@ public class CarbonClient {
 			connectedIP = InetAddress.getByName(ipAddress);
 			
 			openSocket();
-			connectToServer(connectedIP);
+			boolean connected = connectToServer(connectedIP);
+			if (!connected) System.exit(0);
 
 			addHandler("PRNT", (header, data) -> {
 				System.out.println("CLIENT: " 
@@ -141,12 +142,13 @@ public class CarbonClient {
 		sendPacket("CONN", null);
 		DatagramPacket packet = new DatagramPacket(new byte[PACKET_HEADER_SIZE], PACKET_HEADER_SIZE);
 		socket.receive(packet);
-		String answer = new String(Arrays.copyOf(packet.getData(), 3));
+		String answer = new String(Arrays.copyOf(packet.getData(), 4));
 		
-		if (answer.equals("ACK")) {
+		if (answer.equals("ACKN")) {
 			System.out.println("CLIENT: Connection successful! ");
 			return true;
 		}
+		System.out.println("CLIENT: Connection attempt failed. ");
 		return false;
 	}
 	
