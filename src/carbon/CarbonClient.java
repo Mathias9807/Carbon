@@ -28,8 +28,8 @@ public class CarbonClient {
 	
 	public static Functional eventOnUpdate = () -> {};
 	
-	private DatagramSocket 	socket;
-	private InetAddress		connectedIP;
+	public DatagramSocket 	socket;
+	public InetAddress		connectedIP;
 	
 	private Thread 			inputThread, receiveThread, updateThread;
 	
