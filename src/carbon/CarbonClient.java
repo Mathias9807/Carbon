@@ -168,8 +168,14 @@ public class CarbonClient {
 		InetAddress ip = InetAddress.getByAddress(Arrays.copyOfRange(data, 4, 8));
 		
 		String label = new String(Arrays.copyOfRange(data, 0, 4), Charset.forName("UTF-8"));
+
+		int port = 0;
+		port += data[8] << 24 & 0xFF000000;
+		port += data[9] << 16 & 0xFF0000;
+		port += data[10] << 8 & 0xFF00;
+		port += data[11] & 0xFF;
 		
-		return new HeaderData(label, ip, SERVER_PORT);
+		return new HeaderData(label, ip, port);
 	}
 	
 	/**
