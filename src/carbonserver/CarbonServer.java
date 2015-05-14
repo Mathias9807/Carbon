@@ -95,6 +95,7 @@ public class CarbonServer {
 					
 					if (input.equals("exit")) {
 						shutdownServer();
+						System.exit(0);
 						break;
 					}
 					
@@ -342,8 +343,6 @@ public class CarbonServer {
 		System.out.println("SERVER: Shutting down server");
 		running = false;
 		socket.close();
-		
-		System.exit(0);
 	}
 
 }
